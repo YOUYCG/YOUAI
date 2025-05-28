@@ -1,0 +1,6 @@
+
+{
+  "name": "YOUAI Chat",
+  "description": "A React-based AI chat application supporting multiple LLM backends, featuring a responsive UI with quick actions and streaming message capabilities.",
+  "requestFramePermissions": []
+}
