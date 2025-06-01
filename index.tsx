@@ -1,3 +1,4 @@
+import './src/index.css';
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -9,8 +10,12 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+try {
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+} catch (error) {
+  console.error('Failed to render React app:', error);
+}
