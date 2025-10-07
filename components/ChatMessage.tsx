@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage as ChatMessageType } from '../types';
 import LoadingSpinner from './LoadingSpinner';
+import { useTheme } from './ThemeProvider';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -11,15 +12,19 @@ interface ChatMessageProps {
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
+  const { theme, gradientFrom, gradientTo } = useTheme();
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div 
         className={`px-4 py-3 rounded-2xl max-w-3xl break-words shadow-lg ring-1 ${
           isUser 
-            ? 'bg-gradient-to-br from-blue-600 to-sky-600 text-white ring-blue-500/20'
-            : 'bg-slate-800/80 text-slate-100 ring-slate-700'
+            ? 'text-white ring-blue-500/20'
+            : theme === 'dark'
+              ? 'bg-slate-800/80 text-slate-100 ring-slate-700'
+              : 'bg-white text-slate-800 ring-slate-200'
         }`}
+        style={isUser ? { background: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` } : undefined}
       >
         {message.isLoading && message.role === 'model' && !message.text && !message.fileData ? (
             <div className="flex items-center space-x-2 p-2">
@@ -29,7 +34,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         ) : (
           <>
             {message.fileData && message.fileData.dataUrl && message.fileData.type.startsWith('image/') && (
-              <div className="mb-2 border border-slate-600 rounded-lg overflow-hidden">
+              <div className={`mb-2 rounded-lg overflow-hidden ${theme === 'dark' ? 'border border-slate-600' : 'border border-slate-200'}`}>
                 <img 
                   src={message.fileData.dataUrl} 
                   alt={message.fileData.name || 'Uploaded image'} 
@@ -38,7 +43,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               </div>
             )}
             {message.text && (
-              <article className="prose prose-sm prose-invert max-w-none">
+              <article className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert' : ''}`}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {message.text}
                 </ReactMarkdown>
@@ -47,8 +52,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           </>
         )}
         {message.sources && message.sources.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-slate-600">
-            <h4 className="text-xs font-semibold text-slate-400 mb-1">Sources</h4>
+          <div className={`mt-2 pt-2 border-t ${theme === 'dark' ? 'border-slate-600' : 'border-slate-200'}`}>
+            <h4 className={`text-xs font-semibold mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>Sources</h4>
             <ul className="list-disc list-inside space-y-1">
               {message.sources.map((source, index) => (
                 source.web && (
@@ -57,7 +62,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                         href={source.web.uri} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-sky-400 hover:text-sky-300 hover:underline"
+                        className="text-sky-600 dark:text-sky-400 hover:underline"
                     >
                         {source.web.title || source.web.uri}
                     </a>
@@ -67,7 +72,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             </ul>
           </div>
         )}
-        <div className={`text-[10px] mt-2 ${isUser ? 'text-blue-200/90' : 'text-slate-400'}`}>
+        <div className={`text-[10px] mt-2 ${isUser ? 'text-blue-200/90' : theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
           {new Date(message.timestamp).toLocaleTimeString()}
         </div>
       </div>

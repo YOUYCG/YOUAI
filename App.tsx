@@ -1,15 +1,21 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { ChatMessage, FileData } from './types';
+import type { ChatMessage, FileData, Conversation } from './types';
 import { getLlmService } from './services/llm/llmServiceFactory';
 import type { LLMProviderType, LLMService } from './services/llm/types';
 import { LLM_PROVIDERS } from './constants';
 import ChatInput from './components/ChatInput';
 import ChatMessageComponent from './components/ChatMessage';
 import QuickActionsPanel from './components/QuickActionsPanel';
+import TopBar from './components/TopBar';
 import type { GroundingChunk } from '@google/genai';
 
+const SESS_KEY = 'YOUAI_SESSIONS_V1';
+const ACTIVE_KEY = 'YOUAI_ACTIVE_SESSION_ID';
+
 const App: React.FC = () => {
+  const [sessions, setSessions] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,30 +25,73 @@ const App: React.FC = () => {
   
   const currentLlmServiceRef = useRef<LLMService>(getLlmService(selectedProvider));
 
+  // Load sessions from localStorage
   useEffect(() => {
-    currentLlmServiceRef.current = getLlmService(selectedProvider);
-    setMessages([]); // Clear messages when provider changes
-    setError(null); // Clear error when provider changes
-    
-    const welcomeMessage: ChatMessage = {
+    try {
+      const raw = localStorage.getItem(SESS_KEY);
+      const rawActive = localStorage.getItem(ACTIVE_KEY);
+      if (raw) {
+        const parsed: Conversation[] = JSON.parse(raw);
+        // revive Date objects inside messages
+        parsed.forEach(s => s.messages.forEach(m => m.timestamp = new Date(m.timestamp)));
+        setSessions(parsed);
+        const id = rawActive && parsed.some(s => s.id === rawActive) ? rawActive : parsed[0]?.id;
+        if (id) {
+          setActiveId(id);
+          const sess = parsed.find(s => s.id === id)!;
+          setSelectedProvider(sess.provider as LLMProviderType);
+          setMessages(sess.messages);
+        }
+        return;
+      }
+    } catch {}
+    // Initialize with a default session
+    const initialService = getLlmService(selectedProvider);
+    const welcome: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'model',
-      text: `Hello! I'm YOUAI, powered by ${currentLlmServiceRef.current.providerName}. How can I help?`,
+      text: `Hello! I'm YOUAI, powered by ${initialService.providerName}. How can I help?` + (!initialService.isApiKeyConfigured() ? `\n\nWarning: API Key for ${initialService.providerName} is not configured.` : ''),
       timestamp: new Date(),
     };
+    const sess: Conversation = {
+      id: crypto.randomUUID(),
+      title: 'New Chat',
+      provider: selectedProvider,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [welcome],
+    };
+    setSessions([sess]);
+    setActiveId(sess.id);
+    setMessages(sess.messages);
+  }, []);
 
-    if (!currentLlmServiceRef.current.isApiKeyConfigured()) {
-        const apiKeyError = `API Key for ${currentLlmServiceRef.current.providerName} is not configured. Please set the appropriate environment variable.`;
-        setError(apiKeyError);
-        welcomeMessage.text += `\n\nWarning: ${apiKeyError}`;
+  // Persist sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem(SESS_KEY, JSON.stringify(sessions));
+      if (activeId) localStorage.setItem(ACTIVE_KEY, activeId);
+    } catch {}
+  }, [sessions, activeId]);
+
+  // Update service on provider change
+  useEffect(() => {
+    currentLlmServiceRef.current = getLlmService(selectedProvider);
+    // Update provider on active session but keep history
+    if (activeId) {
+      setSessions(prev => prev.map(s => s.id === activeId ? { ...s, provider: selectedProvider, updatedAt: Date.now() } : s));
     }
-    setMessages([welcomeMessage]);
-
-  }, [selectedProvider]);
+  }, [selectedProvider, activeId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Whenever messages change, write back to sessions
+  useEffect(() => {
+    if (!activeId) return;
+    setSessions(prev => prev.map(s => s.id === activeId ? { ...s, messages, updatedAt: Date.now() } : s));
+  }, [messages, activeId]);
 
   const handleProviderChange = (providerId: LLMProviderType) => {
     setSelectedProvider(providerId);
@@ -146,8 +195,105 @@ const App: React.FC = () => {
     setCurrentInput(prompt); 
   };
 
+  // Session management handlers
+  const newSession = () => {
+    const svc = currentLlmServiceRef.current;
+    const welcome: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'model',
+      text: `Hello! I'm YOUAI, powered by ${svc.providerName}. How can I help?` + (!svc.isApiKeyConfigured() ? `\n\nWarning: API Key for ${svc.providerName} is not configured.` : ''),
+      timestamp: new Date(),
+    };
+    const sess: Conversation = {
+      id: crypto.randomUUID(),
+      title: 'New Chat',
+      provider: selectedProvider,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [welcome],
+    };
+    setSessions(prev => [sess, ...prev]);
+    setActiveId(sess.id);
+    setMessages(sess.messages);
+    setError(null);
+  };
+
+  const switchSession = (id: string) => {
+    const sess = sessions.find(s => s.id === id);
+    if (!sess) return;
+    setActiveId(id);
+    setSelectedProvider(sess.provider as LLMProviderType);
+    setMessages(sess.messages);
+    setError(null);
+  };
+
+  const renameSession = (id: string, title: string) => {
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, title, updatedAt: Date.now() } : s));
+  };
+
+  const deleteSession = (id: string) => {
+    setSessions(prev => prev.filter(s => s.id !== id));
+    if (activeId === id) {
+      const next = sessions.find(s => s.id !== id);
+      if (next) {
+        switchSession(next.id);
+      } else {
+        newSession();
+      }
+    }
+  };
+
+  // Export helpers
+  const exportJSON = () => {
+    if (!activeId) return;
+    const sess = sessions.find(s => s.id === activeId);
+    if (!sess) return;
+    const data = {
+      id: sess.id,
+      title: sess.title,
+      provider: sess.provider,
+      createdAt: new Date(sess.createdAt).toISOString(),
+      updatedAt: new Date(sess.updatedAt).toISOString(),
+      messages: sess.messages.map(m => ({
+        id: m.id,
+        role: m.role,
+        text: m.text,
+        timestamp: new Date(m.timestamp).toISOString(),
+      })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sess.title || 'conversation'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportMarkdown = () => {
+    if (!activeId) return;
+    const sess = sessions.find(s => s.id === activeId);
+    if (!sess) return;
+    const md = [
+      `# ${sess.title || 'Conversation'}`,
+      ``,
+      `- Provider: ${getLlmService(sess.provider).providerName}`,
+      `- Created: ${new Date(sess.createdAt).toLocaleString()}`,
+      `- Updated: ${new Date(sess.updatedAt).toLocaleString()}`,
+      ``,
+      ...sess.messages.map(m => `### ${m.role === 'user' ? 'User' : 'Assistant'} (${new Date(m.timestamp).toLocaleString()})\n\n${m.text}`),
+    ].join('\n');
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sess.title || 'conversation'}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="flex h-screen antialiased text-slate-200 font-inter">
+    <div className="flex h-screen antialiased font-inter">
       <QuickActionsPanel 
         onActionClick={handleQuickActionClick}
         selectedProvider={selectedProvider}
@@ -157,6 +303,16 @@ const App: React.FC = () => {
         isProviderReady={currentLlmServiceRef.current.isApiKeyConfigured()}
       />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <TopBar
+          sessions={sessions}
+          activeId={activeId}
+          onNewSession={newSession}
+          onSwitch={switchSession}
+          onRename={renameSession}
+          onDelete={deleteSession}
+          onExportMarkdown={exportMarkdown}
+          onExportJSON={exportJSON}
+        />
         <main className="flex-grow p-6 overflow-y-auto space-y-5 custom-scrollbar">
           {messages.map(msg => (
             <ChatMessageComponent key={msg.id} message={msg} />

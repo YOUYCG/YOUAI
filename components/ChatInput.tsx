@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PaperAirplaneIcon, PaperClipIcon, XCircleIcon } from './icons';
 import LoadingSpinner from './LoadingSpinner';
 import type { FileData } from '../types';
+import { useTheme } from './ThemeProvider';
 
 interface ChatInputProps {
   onSendMessage: (message: string, file?: FileData) => void;
@@ -20,6 +21,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
   const [fileError, setFileError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { theme, gradientFrom, gradientTo } = useTheme();
 
   useEffect(() => {
     if (initialValue) {
@@ -116,30 +118,34 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
   }, [message]);
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gradient-to-t from-slate-900 to-slate-800 border-t border-slate-800">
+    <form onSubmit={handleSubmit} className={`p-4 border-t ${theme === 'dark' ? 'bg-gradient-to-t from-slate-900 to-slate-800 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
       {fileError && (
-        <div className="mb-2 text-xs text-red-400 bg-red-900/50 p-2 rounded-md">
+        <div className={`mb-2 text-xs p-2 rounded-md ${theme === 'dark' ? 'text-red-400 bg-red-900/50' : 'text-red-700 bg-red-100'}`}>
           {fileError}
         </div>
       )}
       {selectedFile && fileDataUrl && (
-        <div className="mb-2 flex items-center justify-between text-xs text-slate-300 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
+        <div className={`mb-2 flex items-center justify-between text-xs p-2 rounded-lg border ${
+          theme === 'dark' ? 'text-slate-300 bg-slate-800/80 border-slate-700' : 'text-slate-700 bg-white border-slate-300'
+        }`}>
           <div className="flex items-center space-x-2 overflow-hidden">
-            <PaperClipIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <PaperClipIcon className={`w-4 h-4 flex-shrink-0 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} />
             <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
-            <span className="text-slate-500 flex-shrink-0">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+            <span className={`${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'} flex-shrink-0`}>({(selectedFile.size / 1024).toFixed(1)} KB)</span>
           </div>
           <button 
             type="button" 
             onClick={handleRemoveFile} 
-            className="text-slate-400 hover:text-red-400 p-1 rounded-full focus:outline-none"
+            className={`p-1 rounded-full focus:outline-none ${theme === 'dark' ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'}`}
             aria-label="Remove selected file"
           >
             <XCircleIcon className="w-4 h-4" />
           </button>
         </div>
       )}
-      <div className="flex items-end space-x-2 rounded-2xl p-1 bg-slate-800/70 border border-slate-700 backdrop-blur">
+      <div className={`flex items-end space-x-2 rounded-2xl p-1 border backdrop-blur ${
+        theme === 'dark' ? 'bg-slate-800/70 border-slate-700' : 'bg-white border-slate-300'
+      }`}>
         <input
           type="file"
           ref={fileInputRef}
@@ -152,7 +158,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="p-3 text-slate-400 hover:text-sky-500 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none transition-colors"
+          className={`p-3 transition-colors focus:outline-none ${
+            theme === 'dark' ? 'text-slate-400 hover:text-sky-500 disabled:text-slate-600' : 'text-slate-500 hover:text-sky-600 disabled:text-slate-300'
+          }`}
           aria-label="Attach file"
         >
           <PaperClipIcon className="w-5 h-5" />
@@ -163,14 +171,24 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={selectedFile ? "Add a caption or prompt for the image..." : "Type your message or drop code here..."}
-          className="flex-1 p-3 bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none resize-none overflow-y-hidden max-h-48 text-sm"
+          className={`flex-1 p-3 bg-transparent focus:outline-none resize-none overflow-y-hidden max-h-48 text-sm ${
+            theme === 'dark' ? 'text-slate-200 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'
+          }`}
           rows={1}
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading || (!message.trim() && !selectedFile) || !!fileError}
-          className="p-3 rounded-xl bg-gradient-to-r from-sky-600 to-emerald-500 text-white hover:from-sky-500 hover:to-emerald-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all shadow"
+          className={`p-3 rounded-xl text-white disabled:cursor-not-allowed focus:outline-none focus:ring-2 transition-all shadow ${
+            theme === 'dark' 
+              ? 'disabled:from-slate-600 disabled:to-slate-600 focus:ring-sky-500/50'
+              : 'focus:ring-sky-600/40'
+          }`}
+          style={{ 
+            background: `linear-gradient(90deg, ${gradientFrom}, ${gradientTo})`,
+            opacity: isLoading || (!message.trim() && !selectedFile) || !!fileError ? 0.6 : 1
+          }}
           aria-label="Send message"
         >
           {isLoading ? <LoadingSpinner /> : <PaperAirplaneIcon className="w-5 h-5" />}

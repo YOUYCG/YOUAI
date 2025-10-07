@@ -32,6 +32,11 @@
                     radial-gradient(900px 500px at 110% 10%, rgba(16, 185, 129, 0.08), transparent),
                     #0f172a; /* slate-900 */
       }
+      /* Light theme overrides */
+      body.theme-light {
+        background: #f8fafc; /* slate-50 */
+        color: #0f172a; /* slate-900 */
+      }
       /* Markdown code block refinement */
       .prose pre {
         background-color: rgba(2, 6, 23, 0.8); /* slate-950/80 */
@@ -51,6 +56,23 @@
       .prose a:hover {
         color: #7dd3fc; /* sky-300 */
         text-decoration: underline;
+      }
+      /* Light theme prose */
+      body.theme-light .prose pre {
+        background-color: #f1f5f9; /* slate-100 */
+        border: 1px solid #e2e8f0; /* slate-200 */
+        color: #0f172a; /* slate-900 */
+      }
+      body.theme-light .prose code {
+        background-color: #f8fafc; /* slate-50 */
+        border: 1px solid #e2e8f0; /* slate-200 */
+        color: #0f172a; /* slate-900 */
+      }
+      body.theme-light .prose a {
+        color: #0369a1; /* sky-700 */
+      }
+      body.theme-light .prose a:hover {
+        color: #0284c7; /* sky-600 */
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
