@@ -1,0 +1,21 @@
+name = "youai-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-05-01"
+
+[vars]
+# Optional defaults; override in Cloudflare dashboard if needed
+ANTHROPIC_VERSION = "2023-06-01"
+ALLOWED_ORIGINS = "*"
+
+# Example config notes:
+# Set the following in Cloudflare Workers > Settings > Variables
+# OPENAI_API_KEY
+# OPENAI_BASE_URL (optional, default: https://api.openai.com/v1)
+# ANTHROPIC_API_KEY
+# ANTHROPIC_BASE_URL (optional, default: https://api.anthropic.com)
+# ANTHROPIC_VERSION (optional, default: 2023-06-01)
+# TAVILY_API_KEY (optional if not using Tavily)
+# SERPER_API_KEY (optional if not using Serper)
+
+# routes / workers.dev choices are configured per environment/project; example:
+# routes = [{ pattern = "proxy.yourdomain.com/*", zone_name = "yourdomain.com" }]

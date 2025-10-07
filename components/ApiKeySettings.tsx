@@ -47,6 +47,7 @@ const ApiKeySettings: React.FC = () => {
   // Web search providers
   const [tavilyKey, setTavilyKey] = useState<string>('');
   const [serperKey, setSerperKey] = useState<string>('');
+  const [searchProxyUrl, setSearchProxyUrl] = useState<string>('');
 
   const [showGemini, setShowGemini] = useState(false);
   const [showOpenAI, setShowOpenAI] = useState(false);
@@ -77,6 +78,7 @@ const ApiKeySettings: React.FC = () => {
       // Web Search
       setTavilyKey(localStorage.getItem('TAVILY_API_KEY') || '');
       setSerperKey(localStorage.getItem('SERPER_API_KEY') || '');
+      setSearchProxyUrl(localStorage.getItem('SEARCH_PROXY_URL') || '');
     } catch {
       // ignore
     }
@@ -117,6 +119,7 @@ const ApiKeySettings: React.FC = () => {
       // Web Search
       if (tavilyKey.trim()) localStorage.setItem('TAVILY_API_KEY', tavilyKey.trim()); else localStorage.removeItem('TAVILY_API_KEY');
       if (serperKey.trim()) localStorage.setItem('SERPER_API_KEY', serperKey.trim()); else localStorage.removeItem('SERPER_API_KEY');
+      if (searchProxyUrl.trim()) localStorage.setItem('SEARCH_PROXY_URL', searchProxyUrl.trim().replace(/\/+$/, '')); else localStorage.removeItem('SEARCH_PROXY_URL');
 
       setStatus('已保存，正在刷新以应用设置…');
       setTimeout(() => window.location.reload(), 300);
@@ -323,10 +326,10 @@ const ApiKeySettings: React.FC = () => {
       </Section>
 
       {/* Web Search Providers */}
-      <Section title="Web Search（Tavily / Serper，可选其一）">
+      <Section title="Web Search（Tavily / Serper，可选其一；或使用代理）">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="block text-xs text-gray-300">Tavily API Key</label>
+            <label className="block text-xs text-gray-300">Tavily API Key（前端直连，生产不推荐）</label>
             <div className="flex items-center space-x-2">
               <input
                 type={showSearch ? 'text' : 'password'}
@@ -345,7 +348,7 @@ const ApiKeySettings: React.FC = () => {
             </div>
           </div>
           <div className="space-y-1">
-            <label className="block text-xs text-gray-300">Serper API Key</label>
+            <label className="block text-xs text-gray-300">Serper API Key（前端直连，生产不推荐）</label>
             <input
               type={showSearch ? 'text' : 'password'}
               value={serperKey}
@@ -355,7 +358,17 @@ const ApiKeySettings: React.FC = () => {
             />
           </div>
         </div>
-        <p className="text-xs text-gray-300">两者任选其一即可。未配置则“网络搜索”模式不会启用。</p>
+        <div className="space-y-1 pt-2">
+          <label className="block text-xs text-gray-300">Search Proxy URL（推荐，通过 Cloudflare Workers 代理）</label>
+          <input
+            type="text"
+            value={searchProxyUrl}
+            onChange={(e) => setSearchProxyUrl(e.target.value)}
+            placeholder="例如：https://your-worker.workers.dev"
+            className="w-full px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <p className="text-xs text-gray-300">推荐使用代理：无需在浏览器存放搜索平台的 API Key，可同时解决 CORS。</p>
       </Section>
 
       <div className="flex items-center space-x-2 pt-1">

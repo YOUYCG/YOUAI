@@ -23,6 +23,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
   const [fileError, setFileError] = useState<string | null>(null);
   const [mode, setMode] = useState<ComposeMode>('normal');
   const [searchResults, setSearchResults] = useState<number>(3);
+  const [citationStyle, setCitationStyle] = useState<'numeric' | 'inline' | 'footnote'>('numeric');
+  const [outputDetail, setOutputDetail] = useState<'concise' | 'balanced' | 'verbose'>('balanced');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +105,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
         webSearchEnabled: mode === 'search' || mode === 'search_deep',
         webSearchResults: searchResults,
         deepThinkingEnabled: mode === 'deep' || mode === 'search_deep',
+        citationStyle,
+        outputDetail,
       };
       
       onSendMessage(message.trim(), fileInfo, options);
@@ -138,9 +142,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
         </div>
       )}
 
-      {/* Mode selector row */}
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Mode and controls row */}
+      <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
           <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>模式</label>
           <select
             value={mode}
@@ -153,6 +157,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
             <option value="deep">深度思考</option>
             <option value="search_deep">搜索 + 深思</option>
           </select>
+
           {showSearchCount && (
             <>
               <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>结果</label>
@@ -167,6 +172,32 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
               />
             </>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>引用</label>
+          <select
+            value={citationStyle}
+            onChange={(e) => setCitationStyle(e.target.value as any)}
+            className={`text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+            title="引用风格"
+          >
+            <option value="numeric">数字 [n]</option>
+            <option value="inline">行内 URL</option>
+            <option value="footnote">脚注</option>
+          </select>
+
+          <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>详细度</label>
+          <select
+            value={outputDetail}
+            onChange={(e) => setOutputDetail(e.target.value as any)}
+            className={`text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+            title="输出详细程度"
+          >
+            <option value="concise">简洁</option>
+            <option value="balanced">适中</option>
+            <option value="verbose">详细</option>
+          </select>
         </div>
       </div>
 

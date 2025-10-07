@@ -24,20 +24,7 @@ const App: React.FC = () => {
   const [currentInput, setCurrentInput] = useState<string>('');
   const [selectedProvider, setSelectedProvider] = useState<LLMProviderType>(LLM_PROVIDERS[0]?.id || 'gemini');
 
-  // Augmentation controls
-  const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(() => {
-    try { return localStorage.getItem(WEB_ENABLED_KEY) === '1'; } catch { return false; }
-  });
-  const [deepThinkEnabled, setDeepThinkEnabled] = useState<boolean>(() => {
-    try { return localStorage.getItem(DEEP_ENABLED_KEY) === '1'; } catch { return false; }
-  });
-  const [webResultsCount, setWebResultsCount] = useState<number>(() => {
-    try { return Number(localStorage.getItem(WEB_MAX_KEY) || '3') || 3; } catch { return 3; }
-  });
-  const [deepLevel, setDeepLevel] = useState<number>(() => {
-    try { return Number(localStorage.getItem(DEEP_LEVEL_KEY) || '2') || 2; } catch { return 2; }
-  });
-
+  // Per-message augmentation options are provided via ChatInput (no global toggles here)
   const currentLlmServiceRef = useRef<LLMService>(getLlmService(selectedProvider));
 
   // Load sessions from localStorage
@@ -149,28 +136,56 @@ const App: React.FC = () => {
     };
     setMessages(prevMessages => [...prevMessages, loadingModelMessage]);
 
-    // Prepare augmentation: web search + deep think
+    // Prepare augmentation: web search + deep think + style controls
     let finalPrompt = inputText;
     let searchSources: GroundingChunk[] | undefined = undefined;
 
     const webEnabled = !!options?.webSearchEnabled;
     const deepEnabled = !!options?.deepThinkingEnabled;
     const maxRes = options?.webSearchResults ?? 3;
+    const citationStyle = options?.citationStyle || 'numeric';
+    const outputDetail = options?.outputDetail || 'balanced';
 
     try {
       if (webEnabled) {
         const results = await webSearch(inputText, maxRes);
         if (results.length > 0) {
           const today = new Date().toISOString().slice(0, 10);
-          const list = results.map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.snippet}`).join('\n\n');
-          const context = `Web search results (date: ${today}). Use these if relevant and cite sources using [n] with the URL:\n\n${list}\n\n`;
+          const list = results.map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.snippet || ''}`).join('\n\n');
+          const context = `Web search results (date: ${today}). Use these if relevant and cite sources:\n\n${list}\n\n`;
           finalPrompt = `${context}User question:\n${inputText}`;
           searchSources = results.map(r => ({ web: { uri: r.url, title: r.title } } as any));
+
+          // attach rich previews to loading model message
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === modelMessageId ? { ...m, webPreviews: results.map(r => ({ title: r.title, url: r.url, snippet: r.snippet, content: r.content })) } : m
+            )
+          );
         }
       }
 
+      // Build instruction parts based on deep thinking, citation style and output detail
+      const instr: string[] = [];
       if (deepEnabled) {
-        finalPrompt += `\n\nInstructions: Carefully reason internally and verify key steps. Do not reveal your hidden reasoning; provide a concise, structured final answer. When citing web sources, use [n] with the link.`;
+        instr.push('Carefully reason internally and verify key steps. Do not reveal your hidden reasoning; provide only the final answer.');
+      }
+      if (citationStyle === 'numeric') {
+        instr.push('When citing web sources, use numeric references like [n] with the link.');
+      } else if (citationStyle === 'inline') {
+        instr.push('When citing web sources, include inline links in parentheses, e.g., (source: URL).');
+      } else if (citationStyle === 'footnote') {
+        instr.push('When citing web sources, add a Footnotes section at the end listing [n] URL lines.');
+      }
+      if (outputDetail === 'concise') {
+        instr.push('Answer concisely in 2-4 sentences or short bullet points.');
+      } else if (outputDetail === 'balanced') {
+        instr.push('Provide a balanced level of detail with clear structure.');
+      } else if (outputDetail === 'verbose') {
+        instr.push('Provide a comprehensive, well-structured answer with sections and examples where helpful.');
+      }
+      if (instr.length) {
+        finalPrompt += `\n\nInstructions: ${instr.join(' ')}`;
       }
 
       const stream = llmService.sendMessageStream({ 

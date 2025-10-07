@@ -7,6 +7,13 @@ export interface FileData {
   dataUrl: string; // base64 encoded data URL
 }
  
+export interface WebPreview {
+  title: string;
+  url: string;
+  snippet?: string;
+  content?: string;
+}
+ 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -15,6 +22,7 @@ export interface ChatMessage {
   isLoading?: boolean;
   sources?: GroundingChunk[];
   fileData?: FileData | null; // Optional file data for user messages
+  webPreviews?: WebPreview[]; // Optional rich previews for web search
 }
  
 export interface QuickAction {
@@ -39,4 +47,6 @@ export interface MessageSendOptions {
   webSearchEnabled?: boolean;
   webSearchResults?: number; // default 3
   deepThinkingEnabled?: boolean;
+  citationStyle?: 'numeric' | 'inline' | 'footnote';
+  outputDetail?: 'concise' | 'balanced' | 'verbose';
 }

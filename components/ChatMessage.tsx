@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage as ChatMessageType } from '../types';
@@ -13,6 +13,7 @@ interface ChatMessageProps {
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const { theme, gradientFrom, gradientTo } = useTheme();
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -51,6 +52,47 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             )}
           </>
         )}
+
+        {/* Rich web previews */}
+        {message.webPreviews && message.webPreviews.length > 0 && (
+          <div className={`mt-3 pt-2 border-t ${theme === 'dark' ? 'border-slate-600' : 'border-slate-200'}`}>
+            <h4 className={`text-xs font-semibold mb-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>搜索结果</h4>
+            <ul className="space-y-2">
+              {message.webPreviews.map((p, idx) => {
+                const isOpen = !!expanded[idx];
+                const toggle = () => setExpanded(prev => ({ ...prev, [idx]: !prev[idx] }));
+                const textMuted = theme === 'dark' ? 'text-slate-400' : 'text-slate-600';
+                const border = theme === 'dark' ? 'border-slate-700' : 'border-slate-300';
+                return (
+                  <li key={idx} className={`rounded-lg border ${border} p-2`}>
+                    <div className="flex items-center justify-between">
+                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-sky-600 dark:text-sky-400 hover:underline">
+                        {p.title || p.url}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={toggle}
+                        className={`text-xs ${textMuted} hover:text-sky-500`}
+                      >
+                        {isOpen ? '收起' : '展开更多'}
+                      </button>
+                    </div>
+                    <p className={`mt-1 text-xs ${textMuted}`}>
+                      {p.snippet || ''}
+                    </p>
+                    {isOpen && (p.content || p.snippet) && (
+                      <div className={`mt-2 text-xs ${textMuted}`}>
+                        {(p.content || p.snippet || '').slice(0, 1200)}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Simple link list for sources (if provided by model) */}
         {message.sources && message.sources.length > 0 && (
           <div className={`mt-2 pt-2 border-t ${theme === 'dark' ? 'border-slate-600' : 'border-slate-200'}`}>
             <h4 className={`text-xs font-semibold mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>Sources</h4>
