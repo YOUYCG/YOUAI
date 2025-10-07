@@ -1,7 +1,18 @@
 
 import type { LLMService, LLMChatMessageParams, LLMStreamChunk, LLMProviderType } from '../types';
 
-const PLACEHOLDER_API_KEY = process.env.PLACEHOLDER_API_KEY;
+// Resolve Placeholder API key from multiple sources
+function resolvePlaceholderKey(): string {
+  const fromProcess = typeof process !== 'undefined' ? (process.env as any)?.PLACEHOLDER_API_KEY : undefined;
+  const env = (import.meta as any)?.env || {};
+  const fromVitePrefixed = env.VITE_PLACEHOLDER_API_KEY;
+  const fromViteUnprefixed = env.PLACEHOLDER_API_KEY;
+  const fromLocalStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('PLACEHOLDER_API_KEY') || undefined : undefined;
+  const fromWindow = typeof window !== 'undefined' ? (window as any).__PLACEHOLDER_API_KEY__ : undefined;
+  return fromProcess || fromVitePrefixed || fromViteUnprefixed || fromLocalStorage || fromWindow || '';
+}
+
+const PLACEHOLDER_API_KEY = resolvePlaceholderKey();
 
 class PlaceholderProvider implements LLMService {
   providerId: LLMProviderType = 'placeholder';

@@ -4,7 +4,22 @@ import { SYSTEM_PROMPT } from '../../../constants';
 import type { FileData, ChatMessage as AppChatMessage } from '../../../types';
 import type { LLMService, LLMChatMessageParams, LLMStreamChunk, LLMProviderType } from '../types';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Resolve API key from multiple sources to be robust across different build systems
+function resolveGeminiApiKey(): string {
+  // 1) Build-time injected via Vite define (process.env.*)
+  const fromProcess = typeof process !== 'undefined' ? (process.env as any)?.GEMINI_API_KEY : undefined;
+  // 2) Vite standard env exposure (only VITE_* are exposed)
+  const env = (import.meta as any)?.env || {};
+  const fromVitePrefixed = env.VITE_GEMINI_API_KEY;
+  const fromViteUnprefixed = env.GEMINI_API_KEY; // in case user explicitly defined it
+  // 3) Optional client-side overrides (useful for debugging without rebuild)
+  const fromLocalStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') || undefined : undefined;
+  const fromWindow = typeof window !== 'undefined' ? (window as any).__GEMINI_API_KEY__ : undefined;
+
+  return fromProcess || fromVitePrefixed || fromViteUnprefixed || fromLocalStorage || fromWindow || '';
+}
+
+const GEMINI_API_KEY = resolveGeminiApiKey();
 
 const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
@@ -63,6 +78,7 @@ class GeminiProvider implements LLMService {
 
   async *sendMessageStream(params: LLMChatMessageParams): AsyncIterableIterator<LLMStreamChunk> {
     if (!ai) {
+      console.warn("Gemini API client is not initialized. GEMINI_API_KEY available:", !!GEMINI_API_KEY, "length:", GEMINI_API_KEY?.length || 0);
       yield { error: "Gemini API client is not initialized. Check API Key.", isFinal: true };
       return;
     }
