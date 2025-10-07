@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTheme } from './ThemeProvider';
 import type { Conversation } from '../types';
-import { DownloadIcon, MoonIcon, PlusIcon, SearchIcon, SunIcon, TrashIcon, PencilIcon } from './icons';
+import { DownloadIcon, MoonIcon, PlusIcon, SearchIcon, SunIcon, TrashIcon, PencilIcon, SparklesIcon } from './icons';
 
 interface SearchHit {
   sessionId: string;
@@ -21,6 +21,17 @@ interface TopBarProps {
   onDelete: (id: string) => void;
   onExportMarkdown: () => void;
   onExportJSON: () => void;
+
+  // New: augmentation controls
+  webSearchEnabled: boolean;
+  onToggleWebSearch: () => void;
+  webResults: number;
+  onChangeWebResults: (n: number) => void;
+
+  deepThinkEnabled: boolean;
+  onToggleDeepThink: () => void;
+  deepLevel: number; // 1-3
+  onChangeDeepLevel: (n: number) => void;
 }
 
 const ACCENTS: Array<{ id: ReturnType<typeof String>; color: string; value: Parameters<ReturnType<typeof useTheme>['setAccent']>[0] }> = [
@@ -32,7 +43,9 @@ const ACCENTS: Array<{ id: ReturnType<typeof String>; color: string; value: Para
 ];
 
 const TopBar: React.FC<TopBarProps> = ({
-  sessions, activeId, onNewSession, onSwitch, onRename, onDelete, onExportMarkdown, onExportJSON
+  sessions, activeId, onNewSession, onSwitch, onRename, onDelete, onExportMarkdown, onExportJSON,
+  webSearchEnabled, onToggleWebSearch, webResults, onChangeWebResults,
+  deepThinkEnabled, onToggleDeepThink, deepLevel, onChangeDeepLevel
 }) => {
   const { theme, setTheme, accent, setAccent } = useTheme();
   const [query, setQuery] = useState('');
@@ -67,14 +80,14 @@ const TopBar: React.FC<TopBarProps> = ({
   const currentTitle = sessions.find(s => s.id === activeId)?.title || 'Untitled';
 
   return (
-    <header className="sticky top-0 z-10 backdrop-blur bg-black/20 border-b border-slate-800">
+    <header className={`sticky top-0 z-10 backdrop-blur ${theme === 'dark' ? 'bg-black/20 border-b border-slate-800' : 'bg-white/70 border-b border-slate-200'}`}>
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Sessions selector */}
         <div className="flex items-center gap-2">
           <select
             value={activeId}
             onChange={(e) => onSwitch(e.target.value)}
-            className="p-2 rounded-lg bg-slate-800/70 border border-slate-700 text-sm text-slate-200"
+            className={`p-2 rounded-lg text-sm ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-slate-200' : 'bg-white border border-slate-300 text-slate-800'}`}
             title="Switch conversation"
           >
             {sessions.map(s => (
@@ -82,14 +95,14 @@ const TopBar: React.FC<TopBarProps> = ({
             ))}
           </select>
           <button
-            className="px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70 text-sm"
+            className={`px-3 py-2 rounded-lg text-sm ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border border-slate-300 text-slate-800 hover:bg-slate-100'}`}
             onClick={onNewSession}
             title="New conversation"
           >
             <span className="inline-flex items-center gap-1"><PlusIcon className="w-4 h-4" /> 新建</span>
           </button>
           <button
-            className="px-2 py-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70"
+            className={`px-2 py-2 rounded-lg ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border border-slate-300 text-slate-800 hover:bg-slate-100'}`}
             onClick={() => {
               const title = prompt('重命名会话', currentTitle);
               if (title && title.trim()) onRename(activeId, title.trim());
@@ -99,7 +112,7 @@ const TopBar: React.FC<TopBarProps> = ({
             <PencilIcon className="w-4 h-4" />
           </button>
           <button
-            className="px-2 py-2 rounded-lg bg-slate-800/70 border border-slate-700 text-red-200 hover:bg-red-900/30"
+            className={`px-2 py-2 rounded-lg ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-red-200 hover:bg-red-900/30' : 'bg-white border border-slate-300 text-red-600 hover:bg-red-50'}`}
             onClick={() => { if (confirm('删除当前会话？')) onDelete(activeId); }}
             title="Delete conversation"
           >
@@ -109,46 +122,90 @@ const TopBar: React.FC<TopBarProps> = ({
 
         {/* Search */}
         <div className="relative flex-1 max-w-3xl">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/70 border border-slate-700">
-            <SearchIcon className="w-4 h-4 text-slate-400" />
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700' : 'bg-white border border-slate-300'}`}>
+            <SearchIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索全部会话…"
               onFocus={() => setShowResults(true)}
-              className="flex-1 bg-transparent outline-none text-sm text-slate-200 placeholder-slate-500"
+              className={`flex-1 bg-transparent outline-none text-sm ${theme === 'dark' ? 'text-slate-200 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'}`}
             />
             {query && (
-              <span className="text-xs text-slate-400">{hits.length} 个结果</span>
+              <span className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{hits.length} 个结果</span>
             )}
           </div>
           {showResults && query && hits.length > 0 && (
-            <div className="absolute mt-1 w-full max-h-72 overflow-y-auto custom-scrollbar rounded-xl bg-slate-900/95 border border-slate-700 shadow-lg z-10">
+            <div className={`absolute mt-1 w-full max-h-72 overflow-y-auto custom-scrollbar rounded-xl shadow-lg z-10 ${theme === 'dark' ? 'bg-slate-900/95 border border-slate-700' : 'bg-white border border-slate-300'}`}>
               {hits.map((h, i) => (
                 <button
                   key={`${h.sessionId}-${h.messageId}-${i}`}
                   onClick={() => { onSwitch(h.sessionId); setShowResults(false); }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-800/70"
+                  className={`w-full text-left px-3 py-2 ${theme === 'dark' ? 'hover:bg-slate-800/70' : 'hover:bg-slate-100'}`}
                 >
-                  <div className="text-xs text-slate-400">{h.sessionTitle} • {h.role} • {h.time}</div>
-                  <div className="text-sm text-slate-200 line-clamp-2">{h.snippet}</div>
+                  <div className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{h.sessionTitle} • {h.role} • {h.time}</div>
+                  <div className={`text-sm line-clamp-2 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{h.snippet}</div>
                 </button>
               ))}
             </div>
           )}
         </div>
 
+        {/* Web search + Deep think toggles */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={onToggleWebSearch}
+            className={`px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1 ${webSearchEnabled
+              ? 'bg-emerald-600/80 border-emerald-500 text-white'
+              : theme === 'dark' ? 'bg-slate-800/70 border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100'
+            }`}
+            title="联网搜索"
+          >
+            <SearchIcon className="w-4 h-4" /> 搜索
+          </button>
+          <input
+            type="number"
+            min={1}
+            max={8}
+            value={webResults}
+            onChange={(e) => onChangeWebResults(Number(e.target.value || 3))}
+            title="每次搜索最大结果数"
+            className={`w-16 px-2 py-2 rounded-lg text-sm border ${theme === 'dark' ? 'bg-slate-800/70 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'}`}
+          />
+
+          <button
+            onClick={onToggleDeepThink}
+            className={`px-3 py-2 rounded-lg text-sm border inline-flex items-center gap-1 ${deepThinkEnabled
+              ? 'bg-indigo-600/80 border-indigo-500 text-white'
+              : theme === 'dark' ? 'bg-slate-800/70 border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-100'
+            }`}
+            title="深度思考"
+          >
+            <SparklesIcon className="w-4 h-4" /> 深思
+          </button>
+          <select
+            value={deepLevel}
+            onChange={(e) => onChangeDeepLevel(Number(e.target.value || 2))}
+            title="深思等级"
+            className={`px-2 py-2 rounded-lg text-sm border ${theme === 'dark' ? 'bg-slate-800/70 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'}`}
+          >
+            <option value={1}>轻</option>
+            <option value={2}>中</option>
+            <option value={3}>深</option>
+          </select>
+        </div>
+
         {/* Export */}
         <div className="flex items-center gap-2">
           <button
-            className="px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70 text-sm"
+            className={`px-3 py-2 rounded-lg text-sm ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border border-slate-300 text-slate-800 hover:bg-slate-100'}`}
             onClick={onExportMarkdown}
             title="Export Markdown"
           >
             <span className="inline-flex items-center gap-1"><DownloadIcon className="w-4 h-4" /> MD</span>
           </button>
           <button
-            className="px-3 py-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70 text-sm"
+            className={`px-3 py-2 rounded-lg text-sm ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border border-slate-300 text-slate-800 hover:bg-slate-100'}`}
             onClick={onExportJSON}
             title="Export JSON"
           >
@@ -160,17 +217,17 @@ const TopBar: React.FC<TopBarProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-lg bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70"
+            className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700 text-slate-100 hover:bg-slate-700/70' : 'bg-white border border-slate-300 text-slate-800 hover:bg-slate-100'}`}
             title="Toggle theme"
           >
             {theme === 'dark' ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
           </button>
-          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/70 border border-slate-700">
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${theme === 'dark' ? 'bg-slate-800/70 border border-slate-700' : 'bg-white border border-slate-300'}`}>
             {ACCENTS.map(a => (
               <button
                 key={a.id as string}
                 onClick={() => setAccent(a.value as any)}
-                className={`w-4 h-4 rounded-full ring-2 ${accent === a.id ? 'ring-white' : 'ring-transparent'}`}
+                className={`w-4 h-4 rounded-full ring-2 ${accent === a.id ? 'ring-black dark:ring-white' : 'ring-transparent'}`}
                 style={{ backgroundColor: a.color }}
                 title={`Accent: ${a.id}`}
               />

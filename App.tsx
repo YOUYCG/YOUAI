@@ -9,9 +9,14 @@ import ChatMessageComponent from './components/ChatMessage';
 import QuickActionsPanel from './components/QuickActionsPanel';
 import TopBar from './components/TopBar';
 import type { GroundingChunk } from '@google/genai';
+import { webSearch } from './services/search/webSearchService';
 
 const SESS_KEY = 'YOUAI_SESSIONS_V1';
 const ACTIVE_KEY = 'YOUAI_ACTIVE_SESSION_ID';
+const WEB_ENABLED_KEY = 'YOUAI_WEBSEARCH_ENABLED';
+const DEEP_ENABLED_KEY = 'YOUAI_DEEPTHINK_ENABLED';
+const WEB_MAX_KEY = 'WEBSEARCH_MAX_RESULTS';
+const DEEP_LEVEL_KEY = 'YOUAI_DEEP_LEVEL';
 
 const App: React.FC = () => {
   const [sessions, setSessions] = useState<Conversation[]>([]);
@@ -22,7 +27,21 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [currentInput, setCurrentInput] = useState<string>('');
   const [selectedProvider, setSelectedProvider] = useState<LLMProviderType>(LLM_PROVIDERS[0]?.id || 'gemini');
-  
+
+  // Augmentation controls
+  const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem(WEB_ENABLED_KEY) === '1'; } catch { return false; }
+  });
+  const [deepThinkEnabled, setDeepThinkEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem(DEEP_ENABLED_KEY) === '1'; } catch { return false; }
+  });
+  const [webResultsCount, setWebResultsCount] = useState<number>(() => {
+    try { return Number(localStorage.getItem(WEB_MAX_KEY) || '3') || 3; } catch { return 3; }
+  });
+  const [deepLevel, setDeepLevel] = useState<number>(() => {
+    try { return Number(localStorage.getItem(DEEP_LEVEL_KEY) || '2') || 2; } catch { return 2; }
+  });
+
   const currentLlmServiceRef = useRef<LLMService>(getLlmService(selectedProvider));
 
   // Load sessions from localStorage
@@ -32,7 +51,6 @@ const App: React.FC = () => {
       const rawActive = localStorage.getItem(ACTIVE_KEY);
       if (raw) {
         const parsed: Conversation[] = JSON.parse(raw);
-        // revive Date objects inside messages
         parsed.forEach(s => s.messages.forEach(m => m.timestamp = new Date(m.timestamp)));
         setSessions(parsed);
         const id = rawActive && parsed.some(s => s.id === rawActive) ? rawActive : parsed[0]?.id;
@@ -77,7 +95,6 @@ const App: React.FC = () => {
   // Update service on provider change
   useEffect(() => {
     currentLlmServiceRef.current = getLlmService(selectedProvider);
-    // Update provider on active session but keep history
     if (activeId) {
       setSessions(prev => prev.map(s => s.id === activeId ? { ...s, provider: selectedProvider, updatedAt: Date.now() } : s));
     }
@@ -136,19 +153,43 @@ const App: React.FC = () => {
     };
     setMessages(prevMessages => [...prevMessages, loadingModelMessage]);
 
+    // Prepare augmentation: web search + deep think
+    let finalPrompt = inputText;
+    let searchSources: GroundingChunk[] | undefined = undefined;
+
     try {
+      if (webSearchEnabled) {
+        const results = await webSearch(inputText, webResultsCount);
+        if (results.length > 0) {
+          const today = new Date().toISOString().slice(0, 10);
+          const list = results.map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.snippet}`).join('\n\n');
+          const context = `Web search results (date: ${today}). Use these if relevant and cite sources using [n] with the URL:\n\n${list}\n\n`;
+          finalPrompt = `${context}User question:\n${inputText}`;
+          searchSources = results.map(r => ({ web: { uri: r.url, title: r.title } } as any));
+        }
+      }
+
+      if (deepThinkEnabled) {
+        const hints = deepLevel >= 3
+          ? 'Thoroughly reason internally, check assumptions, consider multiple angles, and verify consistency.'
+          : deepLevel === 2
+          ? 'Carefully reason internally and verify key steps.'
+          : 'Take a brief moment to reason internally.';
+        finalPrompt += `\n\nInstructions: ${hints} Do not reveal your hidden reasoning; provide a concise, structured final answer. When you use information from the web results, cite them as [n] with the link.`;
+      }
+
       const stream = llmService.sendMessageStream({ 
-        prompt: inputText, 
+        prompt: finalPrompt, 
         fileData: inputFile,
-        history: messages.filter(msg => msg.id !== loadingModelMessage.id) // Pass history without the current loading message
+        history: messages.filter(msg => msg.id !== loadingModelMessage.id)
       });
       
       let accumulatedText = "";
-      let finalSources: GroundingChunk[] | undefined = undefined;
+      let finalSources: GroundingChunk[] | undefined = searchSources;
 
       for await (const chunk of stream) {
         if (chunk.error) {
-          throw new Error(chunk.error); // Propagate error from stream
+          throw new Error(chunk.error);
         }
         if (chunk.sources) {
             finalSources = (finalSources || []).concat(chunk.sources);
@@ -180,7 +221,6 @@ const App: React.FC = () => {
       );
     } finally {
       setIsLoading(false);
-      // Ensure the final state of the message is not loading
       setMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === modelMessageId
@@ -189,7 +229,7 @@ const App: React.FC = () => {
         )
       );
     }
-  }, [isLoading, selectedProvider, messages]);
+  }, [isLoading, selectedProvider, messages, webSearchEnabled, webResultsCount, deepThinkEnabled, deepLevel]);
 
   const handleQuickActionClick = (prompt: string) => {
     setCurrentInput(prompt); 
@@ -312,6 +352,30 @@ const App: React.FC = () => {
           onDelete={deleteSession}
           onExportMarkdown={exportMarkdown}
           onExportJSON={exportJSON}
+          webSearchEnabled={webSearchEnabled}
+          onToggleWebSearch={() => {
+            const v = !webSearchEnabled;
+            setWebSearchEnabled(v);
+            try { localStorage.setItem(WEB_ENABLED_KEY, v ? '1' : '0'); } catch {}
+          }}
+          webResults={webResultsCount}
+          onChangeWebResults={(n) => {
+            const v = Math.min(Math.max(n || 3, 1), 8);
+            setWebResultsCount(v);
+            try { localStorage.setItem(WEB_MAX_KEY, String(v)); } catch {}
+          }}
+          deepThinkEnabled={deepThinkEnabled}
+          onToggleDeepThink={() => {
+            const v = !deepThinkEnabled;
+            setDeepThinkEnabled(v);
+            try { localStorage.setItem(DEEP_ENABLED_KEY, v ? '1' : '0'); } catch {}
+          }}
+          deepLevel={deepLevel}
+          onChangeDeepLevel={(n) => {
+            const v = Math.min(Math.max(n || 2, 1), 3);
+            setDeepLevel(v);
+            try { localStorage.setItem(DEEP_LEVEL_KEY, String(v)); } catch {}
+          }}
         />
         <main className="flex-grow p-6 overflow-y-auto space-y-5 custom-scrollbar">
           {messages.map(msg => (
