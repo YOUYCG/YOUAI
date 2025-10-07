@@ -2,7 +2,7 @@
 import type { ChatMessage, FileData } from '../../types';
 import type { GroundingChunk } from "@google/genai";
 
-export type LLMProviderType = 'gemini' | 'placeholder';
+export type LLMProviderType = 'gemini' | 'openai' | 'anthropic' | 'placeholder';
 
 export interface LLMProviderConfig {
   id: LLMProviderType;

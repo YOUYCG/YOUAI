@@ -2,10 +2,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PaperAirplaneIcon, PaperClipIcon, XCircleIcon } from './icons';
 import LoadingSpinner from './LoadingSpinner';
-import type { FileData } from '../types';
+import type { FileData, MessageSendOptions } from '../types';
+import { useTheme } from './ThemeProvider';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, file?: FileData) => void;
+  onSendMessage: (message: string, file?: FileData, options?: MessageSendOptions) => void;
   isLoading: boolean;
   initialValue?: string;
 }
@@ -13,13 +14,21 @@ interface ChatInputProps {
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_FILE_SIZE_MB = 4; // Gemini API limit for inline data
 
+type ComposeMode = 'normal' | 'search' | 'deep' | 'search_deep';
+
 const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initialValue }) => {
   const [message, setMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [mode, setMode] = useState<ComposeMode>('normal');
+  const [searchResults, setSearchResults] = useState<number>(3);
+  const [citationStyle, setCitationStyle] = useState<'numeric' | 'inline' | 'footnote'>('numeric');
+  const [outputDetail, setOutputDetail] = useState<'concise' | 'balanced' | 'verbose'>('balanced');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { theme, gradientFrom, gradientTo } = useTheme();
 
   useEffect(() => {
     if (initialValue) {
@@ -91,8 +100,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
       const fileInfo: FileData | undefined = selectedFile && fileDataUrl
         ? { name: selectedFile.name, type: selectedFile.type, dataUrl: fileDataUrl }
         : undefined;
+
+      const options: MessageSendOptions = {
+        webSearchEnabled: mode === 'search' || mode === 'search_deep',
+        webSearchResults: searchResults,
+        deepThinkingEnabled: mode === 'deep' || mode === 'search_deep',
+        citationStyle,
+        outputDetail,
+      };
       
-      onSendMessage(message.trim(), fileInfo);
+      onSendMessage(message.trim(), fileInfo, options);
       setMessage('');
       handleRemoveFile(); // Clear file after sending
       if (textareaRef.current) {
@@ -100,7 +117,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
         textareaRef.current.focus();
       }
     }
-  }, [message, selectedFile, fileDataUrl, isLoading, fileError, onSendMessage]);
+  }, [message, selectedFile, fileDataUrl, isLoading, fileError, onSendMessage, mode, searchResults]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -115,31 +132,97 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
     }
   }, [message]);
 
+  const showSearchCount = mode === 'search' || mode === 'search_deep';
+
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-800 border-t border-gray-700">
+    <form onSubmit={handleSubmit} className={`p-4 border-t ${theme === 'dark' ? 'bg-gradient-to-t from-slate-900 to-slate-800 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
       {fileError && (
-        <div className="mb-2 text-xs text-red-400 bg-red-900 bg-opacity-50 p-2 rounded-md">
+        <div className={`mb-2 text-xs p-2 rounded-md ${theme === 'dark' ? 'text-red-400 bg-red-900/50' : 'text-red-700 bg-red-100'}`}>
           {fileError}
         </div>
       )}
+
+      {/* Mode and controls row */}
+      <div className="mb-2 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>模式</label>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as ComposeMode)}
+            className={`text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+            title="选择生成模式"
+          >
+            <option value="normal">普通</option>
+            <option value="search">网络搜索</option>
+            <option value="deep">深度思考</option>
+            <option value="search_deep">搜索 + 深思</option>
+          </select>
+
+          {showSearchCount && (
+            <>
+              <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>结果</label>
+              <input
+                type="number"
+                min={1}
+                max={8}
+                value={searchResults}
+                onChange={(e) => setSearchResults(Math.max(1, Math.min(8, Number(e.target.value) || 3)))}
+                className={`w-16 text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+                title="每次搜索返回的结果数量"
+              />
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>引用</label>
+          <select
+            value={citationStyle}
+            onChange={(e) => setCitationStyle(e.target.value as any)}
+            className={`text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+            title="引用风格"
+          >
+            <option value="numeric">数字 [n]</option>
+            <option value="inline">行内 URL</option>
+            <option value="footnote">脚注</option>
+          </select>
+
+          <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>详细度</label>
+          <select
+            value={outputDetail}
+            onChange={(e) => setOutputDetail(e.target.value as any)}
+            className={`text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+            title="输出详细程度"
+          >
+            <option value="concise">简洁</option>
+            <option value="balanced">适中</option>
+            <option value="verbose">详细</option>
+          </select>
+        </div>
+      </div>
+
       {selectedFile && fileDataUrl && (
-        <div className="mb-2 flex items-center justify-between text-xs text-gray-300 bg-gray-700 p-2 rounded-md">
+        <div className={`mb-2 flex items-center justify-between text-xs p-2 rounded-lg border ${
+          theme === 'dark' ? 'text-slate-300 bg-slate-800/80 border-slate-700' : 'text-slate-700 bg-white border-slate-300'
+        }`}>
           <div className="flex items-center space-x-2 overflow-hidden">
-            <PaperClipIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <PaperClipIcon className={`w-4 h-4 flex-shrink-0 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`} />
             <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
-            <span className="text-gray-500 flex-shrink-0">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+            <span className={`${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'} flex-shrink-0`}>({(selectedFile.size / 1024).toFixed(1)} KB)</span>
           </div>
           <button 
             type="button" 
             onClick={handleRemoveFile} 
-            className="text-gray-400 hover:text-red-400 p-1 rounded-full focus:outline-none"
+            className={`p-1 rounded-full focus:outline-none ${theme === 'dark' ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-600'}`}
             aria-label="Remove selected file"
           >
             <XCircleIcon className="w-4 h-4" />
           </button>
         </div>
       )}
-      <div className="flex items-end space-x-2 bg-gray-700 rounded-xl p-1">
+      <div className={`flex items-end space-x-2 rounded-2xl p-1 border backdrop-blur ${
+        theme === 'dark' ? 'bg-slate-800/70 border-slate-700' : 'bg-white border-slate-300'
+      }`}>
         <input
           type="file"
           ref={fileInputRef}
@@ -152,7 +235,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="p-3 text-gray-400 hover:text-blue-500 disabled:text-gray-600 disabled:cursor-not-allowed focus:outline-none"
+          className={`p-3 transition-colors focus:outline-none ${
+            theme === 'dark' ? 'text-slate-400 hover:text-sky-500 disabled:text-slate-600' : 'text-slate-500 hover:text-sky-600 disabled:text-slate-300'
+          }`}
           aria-label="Attach file"
         >
           <PaperClipIcon className="w-5 h-5" />
@@ -163,14 +248,24 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={selectedFile ? "Add a caption or prompt for the image..." : "Type your message or drop code here..."}
-          className="flex-1 p-3 bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none resize-none overflow-y-hidden max-h-48 text-sm"
+          className={`flex-1 p-3 bg-transparent focus:outline-none resize-none overflow-y-hidden max-h-48 text-sm ${
+            theme === 'dark' ? 'text-slate-200 placeholder-slate-500' : 'text-slate-800 placeholder-slate-400'
+          }`}
           rows={1}
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading || (!message.trim() && !selectedFile) || !!fileError}
-          className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          className={`p-3 rounded-xl text-white disabled:cursor-not-allowed focus:outline-none focus:ring-2 transition-all shadow ${
+            theme === 'dark' 
+              ? 'disabled:from-slate-600 disabled:to-slate-600 focus:ring-sky-500/50'
+              : 'focus:ring-sky-600/40'
+          }`}
+          style={{ 
+            background: `linear-gradient(90deg, ${gradientFrom}, ${gradientTo})`,
+            opacity: isLoading || (!message.trim() && !selectedFile) || !!fileError ? 0.6 : 1
+          }}
           aria-label="Send message"
         >
           {isLoading ? <LoadingSpinner /> : <PaperAirplaneIcon className="w-5 h-5" />}
