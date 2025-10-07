@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { QuickAction } from '../types';
 import { QUICK_ACTIONS } from '../constants';
 import QuickActionButton from './QuickActionButton';
 import type { LLMProviderType, LLMProviderConfig } from '../services/llm/types';
+import ApiKeySettings from './ApiKeySettings';
 
 interface QuickActionsPanelProps {
   onActionClick: (prompt: string) => void;
@@ -20,6 +21,8 @@ const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
   onProviderChange,
   currentProviderName 
 }) => {
+  const [showApiSettings, setShowApiSettings] = useState(false);
+
   return (
     <div className="w-72 bg-gray-800 p-4 border-r border-gray-700 flex flex-col h-full">
       <div className="flex items-center space-x-2 mb-4">
@@ -27,7 +30,7 @@ const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
         <h1 className="text-xl font-semibold text-white">YOUAI</h1>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-3">
         <label htmlFor="llm-provider-select" className="block text-xs font-medium text-gray-400 mb-1">
           AI Provider
         </label>
@@ -43,6 +46,21 @@ const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setShowApiSettings(v => !v)}
+          className="w-full text-left text-sm px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {showApiSettings ? '隐藏 API Key 设置' : '显示 API Key 设置'}
+        </button>
+        {showApiSettings && (
+          <div className="mt-3">
+            <ApiKeySettings />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 flex-grow overflow-y-auto pr-1 custom-scrollbar">
