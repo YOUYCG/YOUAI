@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { ChatMessage, FileData, Conversation } from './types';
+import type { ChatMessage, FileData, Conversation, MessageSendOptions } from './types';
 import { getLlmService } from './services/llm/llmServiceFactory';
 import type { LLMProviderType, LLMService } from './services/llm/types';
 import { LLM_PROVIDERS } from './constants';
@@ -13,10 +13,6 @@ import { webSearch } from './services/search/webSearchService';
 
 const SESS_KEY = 'YOUAI_SESSIONS_V1';
 const ACTIVE_KEY = 'YOUAI_ACTIVE_SESSION_ID';
-const WEB_ENABLED_KEY = 'YOUAI_WEBSEARCH_ENABLED';
-const DEEP_ENABLED_KEY = 'YOUAI_DEEPTHINK_ENABLED';
-const WEB_MAX_KEY = 'WEBSEARCH_MAX_RESULTS';
-const DEEP_LEVEL_KEY = 'YOUAI_DEEP_LEVEL';
 
 const App: React.FC = () => {
   const [sessions, setSessions] = useState<Conversation[]>([]);
@@ -114,7 +110,7 @@ const App: React.FC = () => {
     setSelectedProvider(providerId);
   };
 
-  const handleSendMessage = useCallback(async (inputText: string, inputFile?: FileData | null) => {
+  const handleSendMessage = useCallback(async (inputText: string, inputFile?: FileData | null, options?: MessageSendOptions) => {
     if ((!inputText.trim() && !inputFile) || isLoading) return;
 
     const llmService = currentLlmServiceRef.current;
@@ -157,9 +153,13 @@ const App: React.FC = () => {
     let finalPrompt = inputText;
     let searchSources: GroundingChunk[] | undefined = undefined;
 
+    const webEnabled = !!options?.webSearchEnabled;
+    const deepEnabled = !!options?.deepThinkingEnabled;
+    const maxRes = options?.webSearchResults ?? 3;
+
     try {
-      if (webSearchEnabled) {
-        const results = await webSearch(inputText, webResultsCount);
+      if (webEnabled) {
+        const results = await webSearch(inputText, maxRes);
         if (results.length > 0) {
           const today = new Date().toISOString().slice(0, 10);
           const list = results.map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.snippet}`).join('\n\n');
@@ -169,13 +169,8 @@ const App: React.FC = () => {
         }
       }
 
-      if (deepThinkEnabled) {
-        const hints = deepLevel >= 3
-          ? 'Thoroughly reason internally, check assumptions, consider multiple angles, and verify consistency.'
-          : deepLevel === 2
-          ? 'Carefully reason internally and verify key steps.'
-          : 'Take a brief moment to reason internally.';
-        finalPrompt += `\n\nInstructions: ${hints} Do not reveal your hidden reasoning; provide a concise, structured final answer. When you use information from the web results, cite them as [n] with the link.`;
+      if (deepEnabled) {
+        finalPrompt += `\n\nInstructions: Carefully reason internally and verify key steps. Do not reveal your hidden reasoning; provide a concise, structured final answer. When citing web sources, use [n] with the link.`;
       }
 
       const stream = llmService.sendMessageStream({ 
@@ -229,7 +224,7 @@ const App: React.FC = () => {
         )
       );
     }
-  }, [isLoading, selectedProvider, messages, webSearchEnabled, webResultsCount, deepThinkEnabled, deepLevel]);
+  }, [isLoading, selectedProvider, messages]);
 
   const handleQuickActionClick = (prompt: string) => {
     setCurrentInput(prompt); 
@@ -352,30 +347,6 @@ const App: React.FC = () => {
           onDelete={deleteSession}
           onExportMarkdown={exportMarkdown}
           onExportJSON={exportJSON}
-          webSearchEnabled={webSearchEnabled}
-          onToggleWebSearch={() => {
-            const v = !webSearchEnabled;
-            setWebSearchEnabled(v);
-            try { localStorage.setItem(WEB_ENABLED_KEY, v ? '1' : '0'); } catch {}
-          }}
-          webResults={webResultsCount}
-          onChangeWebResults={(n) => {
-            const v = Math.min(Math.max(n || 3, 1), 8);
-            setWebResultsCount(v);
-            try { localStorage.setItem(WEB_MAX_KEY, String(v)); } catch {}
-          }}
-          deepThinkEnabled={deepThinkEnabled}
-          onToggleDeepThink={() => {
-            const v = !deepThinkEnabled;
-            setDeepThinkEnabled(v);
-            try { localStorage.setItem(DEEP_ENABLED_KEY, v ? '1' : '0'); } catch {}
-          }}
-          deepLevel={deepLevel}
-          onChangeDeepLevel={(n) => {
-            const v = Math.min(Math.max(n || 2, 1), 3);
-            setDeepLevel(v);
-            try { localStorage.setItem(DEEP_LEVEL_KEY, String(v)); } catch {}
-          }}
         />
         <main className="flex-grow p-6 overflow-y-auto space-y-5 custom-scrollbar">
           {messages.map(msg => (

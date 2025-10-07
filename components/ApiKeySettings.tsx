@@ -47,12 +47,12 @@ const ApiKeySettings: React.FC = () => {
   // Web search providers
   const [tavilyKey, setTavilyKey] = useState<string>('');
   const [serperKey, setSerperKey] = useState<string>('');
-  const [maxResults, setMaxResults] = useState<number>(3);
 
   const [showGemini, setShowGemini] = useState(false);
   const [showOpenAI, setShowOpenAI] = useState(false);
   const [showAnthropic, setShowAnthropic] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [status, setStatus] = useState<string>('');
 
   useEffect(() => {
@@ -74,10 +74,9 @@ const ApiKeySettings: React.FC = () => {
       // Placeholder
       setPlaceholderKey(localStorage.getItem('PLACEHOLDER_API_KEY') || '');
 
-      // Web search
+      // Web Search
       setTavilyKey(localStorage.getItem('TAVILY_API_KEY') || '');
       setSerperKey(localStorage.getItem('SERPER_API_KEY') || '');
-      setMaxResults(Number(localStorage.getItem('WEBSEARCH_MAX_RESULTS') || '3'));
     } catch {
       // ignore
     }
@@ -100,12 +99,12 @@ const ApiKeySettings: React.FC = () => {
 
       // OpenAI-compatible
       localStorage.setItem('OPENAI_API_KEY', oaiKey.trim());
-      localStorage.setItem('OPENAI_BASE_URL', oaiBaseUrl.trim().replace(/\/+$/, ''));
+      localStorage.setItem('OPENAI_BASE_URL', oaiBaseUrl.trim().replace(/\\/+$/, ''));
       localStorage.setItem('OPENAI_MODEL', oaiModel.trim() || 'gpt-4o-mini');
 
       // Anthropic
       localStorage.setItem('ANTHROPIC_API_KEY', anthKey.trim());
-      localStorage.setItem('ANTHROPIC_BASE_URL', anthBaseUrl.trim().replace(/\/+$/, ''));
+      localStorage.setItem('ANTHROPIC_BASE_URL', anthBaseUrl.trim().replace(/\\/+$/, ''));
       localStorage.setItem('ANTHROPIC_MODEL', anthModel.trim() || 'claude-3-5-sonnet-latest');
 
       // Placeholder
@@ -115,18 +114,9 @@ const ApiKeySettings: React.FC = () => {
         localStorage.removeItem('PLACEHOLDER_API_KEY');
       }
 
-      // Web search
-      if (tavilyKey.trim()) {
-        localStorage.setItem('TAVILY_API_KEY', tavilyKey.trim());
-      } else {
-        localStorage.removeItem('TAVILY_API_KEY');
-      }
-      if (serperKey.trim()) {
-        localStorage.setItem('SERPER_API_KEY', serperKey.trim());
-      } else {
-        localStorage.removeItem('SERPER_API_KEY');
-      }
-      localStorage.setItem('WEBSEARCH_MAX_RESULTS', String(Math.min(Math.max(maxResults || 3, 1), 8)));
+      // Web Search
+      if (tavilyKey.trim()) localStorage.setItem('TAVILY_API_KEY', tavilyKey.trim()); else localStorage.removeItem('TAVILY_API_KEY');
+      if (serperKey.trim()) localStorage.setItem('SERPER_API_KEY', serperKey.trim()); else localStorage.removeItem('SERPER_API_KEY');
 
       setStatus('已保存，正在刷新以应用设置…');
       setTimeout(() => window.location.reload(), 300);
@@ -154,10 +144,9 @@ const ApiKeySettings: React.FC = () => {
       // Placeholder
       localStorage.removeItem('PLACEHOLDER_API_KEY');
 
-      // Web search
+      // Web Search
       localStorage.removeItem('TAVILY_API_KEY');
       localStorage.removeItem('SERPER_API_KEY');
-      localStorage.removeItem('WEBSEARCH_MAX_RESULTS');
 
       setStatus('已清除，正在刷新…');
       setTimeout(() => window.location.reload(), 300);
@@ -310,46 +299,6 @@ const ApiKeySettings: React.FC = () => {
         </div>
       </Section>
 
-      {/* Web Search */}
-      <Section title="Web Search（联网搜索）">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="block text-xs text-gray-300">Tavily API Key</label>
-            <input
-              type="password"
-              value={tavilyKey}
-              onChange={(e) => setTavilyKey(e.target.value)}
-              placeholder={tavilyKey ? mask(tavilyKey) : '可选，推荐用于联网搜索'}
-              className="w-full px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs text-gray-300">Serper API Key</label>
-            <input
-              type="password"
-              value={serperKey}
-              onChange={(e) => setSerperKey(e.target.value)}
-              placeholder={serperKey ? mask(serperKey) : '可选，Google 搜索代理'}
-              className="w-full px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="block text-xs text-gray-300">每次搜索最大结果数（1-8）</label>
-          <input
-            type="number"
-            min={1}
-            max={8}
-            value={maxResults}
-            onChange={(e) => setMaxResults(Number(e.target.value || 3))}
-            className="w-24 px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <p className="text-[11px] text-gray-400">
-          开启联网搜索后，模型会在回答前查阅上述搜索结果的摘要，并在答案中引用来源链接。若未配置任何搜索 Key，将跳过联网搜索。
-        </p>
-      </Section>
-
       {/* Placeholder */}
       <Section title="Placeholder（占位符 Provider）">
         <div className="space-y-1">
@@ -371,6 +320,42 @@ const ApiKeySettings: React.FC = () => {
             </button>
           </div>
         </div>
+      </Section>
+
+      {/* Web Search Providers */}
+      <Section title="Web Search（Tavily / Serper，可选其一）">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="block text-xs text-gray-300">Tavily API Key</label>
+            <div className="flex items-center space-x-2">
+              <input
+                type={showSearch ? 'text' : 'password'}
+                value={tavilyKey}
+                onChange={(e) => setTavilyKey(e.target.value)}
+                placeholder={tavilyKey ? mask(tavilyKey) : '粘贴你的 Tavily API Key（可选）'}
+                className="w-full px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSearch(v => !v)}
+                className="text-xs px-2 py-1 rounded-md bg-gray-600 text-gray-100 hover:bg-gray-500"
+              >
+                {showSearch ? '隐藏' : '显示'}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs text-gray-300">Serper API Key</label>
+            <input
+              type={showSearch ? 'text' : 'password'}
+              value={serperKey}
+              onChange={(e) => setSerperKey(e.target.value)}
+              placeholder={serperKey ? mask(serperKey) : '粘贴你的 Serper API Key（可选）'}
+              className="w-full px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-gray-300">两者任选其一即可。未配置则“网络搜索”模式不会启用。</p>
       </Section>
 
       <div className="flex items-center space-x-2 pt-1">

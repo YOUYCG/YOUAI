@@ -34,3 +34,9 @@ export interface Conversation {
   updatedAt: number;
   messages: ChatMessage[];
 }
+ 
+export interface MessageSendOptions {
+  webSearchEnabled?: boolean;
+  webSearchResults?: number; // default 3
+  deepThinkingEnabled?: boolean;
+}

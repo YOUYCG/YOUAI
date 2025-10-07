@@ -2,11 +2,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PaperAirplaneIcon, PaperClipIcon, XCircleIcon } from './icons';
 import LoadingSpinner from './LoadingSpinner';
-import type { FileData } from '../types';
+import type { FileData, MessageSendOptions } from '../types';
 import { useTheme } from './ThemeProvider';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, file?: FileData) => void;
+  onSendMessage: (message: string, file?: FileData, options?: MessageSendOptions) => void;
   isLoading: boolean;
   initialValue?: string;
 }
@@ -14,11 +14,16 @@ interface ChatInputProps {
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_FILE_SIZE_MB = 4; // Gemini API limit for inline data
 
+type ComposeMode = 'normal' | 'search' | 'deep' | 'search_deep';
+
 const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initialValue }) => {
   const [message, setMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [mode, setMode] = useState<ComposeMode>('normal');
+  const [searchResults, setSearchResults] = useState<number>(3);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { theme, gradientFrom, gradientTo } = useTheme();
@@ -93,8 +98,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
       const fileInfo: FileData | undefined = selectedFile && fileDataUrl
         ? { name: selectedFile.name, type: selectedFile.type, dataUrl: fileDataUrl }
         : undefined;
+
+      const options: MessageSendOptions = {
+        webSearchEnabled: mode === 'search' || mode === 'search_deep',
+        webSearchResults: searchResults,
+        deepThinkingEnabled: mode === 'deep' || mode === 'search_deep',
+      };
       
-      onSendMessage(message.trim(), fileInfo);
+      onSendMessage(message.trim(), fileInfo, options);
       setMessage('');
       handleRemoveFile(); // Clear file after sending
       if (textareaRef.current) {
@@ -102,7 +113,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
         textareaRef.current.focus();
       }
     }
-  }, [message, selectedFile, fileDataUrl, isLoading, fileError, onSendMessage]);
+  }, [message, selectedFile, fileDataUrl, isLoading, fileError, onSendMessage, mode, searchResults]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -117,6 +128,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
     }
   }, [message]);
 
+  const showSearchCount = mode === 'search' || mode === 'search_deep';
+
   return (
     <form onSubmit={handleSubmit} className={`p-4 border-t ${theme === 'dark' ? 'bg-gradient-to-t from-slate-900 to-slate-800 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
       {fileError && (
@@ -124,6 +137,39 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           {fileError}
         </div>
       )}
+
+      {/* Mode selector row */}
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>模式</label>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as ComposeMode)}
+            className={`text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+            title="选择生成模式"
+          >
+            <option value="normal">普通</option>
+            <option value="search">网络搜索</option>
+            <option value="deep">深度思考</option>
+            <option value="search_deep">搜索 + 深思</option>
+          </select>
+          {showSearchCount && (
+            <>
+              <label className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>结果</label>
+              <input
+                type="number"
+                min={1}
+                max={8}
+                value={searchResults}
+                onChange={(e) => setSearchResults(Math.max(1, Math.min(8, Number(e.target.value) || 3)))}
+                className={`w-16 text-sm rounded-md px-2 py-1 border ${theme === 'dark' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-white text-slate-800 border-slate-300'}`}
+                title="每次搜索返回的结果数量"
+              />
+            </>
+          )}
+        </div>
+      </div>
+
       {selectedFile && fileDataUrl && (
         <div className={`mb-2 flex items-center justify-between text-xs p-2 rounded-lg border ${
           theme === 'dark' ? 'text-slate-300 bg-slate-800/80 border-slate-700' : 'text-slate-700 bg-white border-slate-300'
