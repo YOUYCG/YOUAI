@@ -4,6 +4,7 @@ const mask = (v: string) => (v ? '•'.repeat(Math.min(v.length, 12)) : '');
 
 const ApiKeySettings: React.FC = () => {
   const [geminiKey, setGeminiKey] = useState<string>('');
+  const [geminiModel, setGeminiModel] = useState<string>('gemini-1.5-flash');
   const [placeholderKey, setPlaceholderKey] = useState<string>('');
   const [showGemini, setShowGemini] = useState(false);
   const [showPlaceholder, setShowPlaceholder] = useState(false);
@@ -13,8 +14,10 @@ const ApiKeySettings: React.FC = () => {
     try {
       const g = localStorage.getItem('GEMINI_API_KEY') || '';
       const p = localStorage.getItem('PLACEHOLDER_API_KEY') || '';
+      const m = localStorage.getItem('GEMINI_MODEL') || 'gemini-1.5-flash';
       setGeminiKey(g);
       setPlaceholderKey(p);
+      setGeminiModel(m);
     } catch {
       // ignore
     }
@@ -23,6 +26,7 @@ const ApiKeySettings: React.FC = () => {
   const save = () => {
     try {
       localStorage.setItem('GEMINI_API_KEY', geminiKey.trim());
+      localStorage.setItem('GEMINI_MODEL', geminiModel.trim() || 'gemini-1.5-flash');
       if (placeholderKey.trim()) {
         localStorage.setItem('PLACEHOLDER_API_KEY', placeholderKey.trim());
       }
@@ -36,6 +40,7 @@ const ApiKeySettings: React.FC = () => {
   const clearAll = () => {
     try {
       localStorage.removeItem('GEMINI_API_KEY');
+      localStorage.removeItem('GEMINI_MODEL');
       localStorage.removeItem('PLACEHOLDER_API_KEY');
       setStatus('已清除，正在刷新…');
       setTimeout(() => window.location.reload(), 300);
@@ -47,7 +52,7 @@ const ApiKeySettings: React.FC = () => {
   return (
     <div className="space-y-3 p-3 bg-gray-700 rounded-lg">
       <p className="text-xs text-gray-300">
-        在此设置 API Key（仅保存在当前浏览器的本地存储，不会上传服务器）。
+        在此设置 API Key 和模型（仅保存在当前浏览器的本地存储，不会上传服务器）。
       </p>
 
       <div className="space-y-1">
@@ -68,6 +73,17 @@ const ApiKeySettings: React.FC = () => {
             {showGemini ? '隐藏' : '显示'}
           </button>
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-xs text-gray-300">Gemini 模型（例如：gemini-2.0-flash 或 gemini-1.5-flash）</label>
+        <input
+          type="text"
+          value={geminiModel}
+          onChange={(e) => setGeminiModel(e.target.value)}
+          placeholder="gemini-1.5-flash"
+          className="w-full px-2 py-2 rounded-md bg-gray-800 text-gray-200 text-sm border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
 
       <div className="space-y-1">

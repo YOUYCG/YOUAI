@@ -6,25 +6,32 @@ import type { LLMService, LLMChatMessageParams, LLMStreamChunk, LLMProviderType 
 
 // Resolve API key from multiple sources to be robust across different build systems
 function resolveGeminiApiKey(): string {
-  // 1) Build-time injected via Vite define (process.env.*)
   const fromProcess = typeof process !== 'undefined' ? (process.env as any)?.GEMINI_API_KEY : undefined;
-  // 2) Vite standard env exposure (only VITE_* are exposed)
   const env = (import.meta as any)?.env || {};
   const fromVitePrefixed = env.VITE_GEMINI_API_KEY;
-  const fromViteUnprefixed = env.GEMINI_API_KEY; // in case user explicitly defined it
-  // 3) Optional client-side overrides (useful for debugging without rebuild)
+  const fromViteUnprefixed = env.GEMINI_API_KEY;
   const fromLocalStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') || undefined : undefined;
   const fromWindow = typeof window !== 'undefined' ? (window as any).__GEMINI_API_KEY__ : undefined;
-
   return fromProcess || fromVitePrefixed || fromViteUnprefixed || fromLocalStorage || fromWindow || '';
 }
 
-const GEMINI_API_KEY = resolveGeminiApiKey();
+// Resolve model name with sensible defaults and overrides
+function resolveGeminiModel(): string {
+  const env = (import.meta as any)?.env || {};
+  const fromProcess = typeof process !== 'undefined' ? (process.env as any)?.GEMINI_MODEL : undefined;
+  const fromVitePrefixed = env.VITE_GEMINI_MODEL;
+  const fromViteUnprefixed = env.GEMINI_MODEL;
+  const fromLocalStorage = typeof localStorage !== 'undefined' ? localStorage.getItem('GEMINI_MODEL') || undefined : undefined;
+  const fromWindow = typeof window !== 'undefined' ? (window as any).__GEMINI_MODEL__ : undefined;
+  // Default to a widely available model
+  return fromLocalStorage || fromWindow || fromProcess || fromVitePrefixed || fromViteUnprefixed || 'gemini-1.5-flash';
+}
 
+const GEMINI_API_KEY = resolveGeminiApiKey();
 const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
-const modelConfig = {
-  model: "gemini-2.5-flash-preview-04-17",
+// Common config (without model name)
+const baseConfig = {
   config: {
     systemInstruction: SYSTEM_PROMPT,
     temperature: 0.7,
@@ -37,7 +44,7 @@ const modelConfig = {
     { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
     { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
   ]
-};
+} as const;
 
 // Helper to convert base64 data URL to a Gemini Part object
 function fileToGenerativePart(dataUrl: string, mimeType: string): GeminiPart {
@@ -61,12 +68,32 @@ function convertToGeminiHistory(history: AppChatMessage[]): Content[] {
       parts.push(fileToGenerativePart(msg.fileData.dataUrl, msg.fileData.type));
     }
     return {
-      role: msg.role === 'user' ? 'user' : 'model', // Role is 'user' or 'model' (string literals)
+      role: msg.role === 'user' ? 'user' : 'model',
       parts: parts,
     };
-  }).filter(content => content.parts.length > 0); // Ensure parts are not empty
+  }).filter(content => content.parts.length > 0);
 }
 
+function isModelNotFoundError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err || '');
+  const lower = msg.toLowerCase();
+  return lower.includes('not found') || lower.includes('404') || lower.includes('listmodels') || lower.includes('does not support');
+}
+
+async function* streamWithModel(chat: Chat, parts: GeminiPart[]): AsyncIterableIterator<LLMStreamChunk> {
+  const result: AsyncIterableIterator<GenerateContentResponse> = await chat.sendMessageStream({ message: parts });
+  for await (const chunk of result) {
+    const llmChunk: LLMStreamChunk = {};
+    if (chunk.text) {
+      llmChunk.text = chunk.text;
+    }
+    if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+      llmChunk.sources = chunk.candidates[0].groundingMetadata.groundingChunks;
+    }
+    yield llmChunk;
+  }
+  yield { isFinal: true };
+}
 
 class GeminiProvider implements LLMService {
   providerId: LLMProviderType = 'gemini';
@@ -87,56 +114,57 @@ class GeminiProvider implements LLMService {
       return;
     }
 
-    try {
-      const geminiHistory = convertToGeminiHistory(params.history);
-      
-      const chat: Chat = ai.chats.create({
-        ...modelConfig,
-        history: geminiHistory, // Pass converted history to the chat session
-      });
-      
-      const messageParts: GeminiPart[] = [];
-      if (params.prompt) {
-        messageParts.push({ text: params.prompt });
-      }
-      if (params.fileData && params.fileData.dataUrl && params.fileData.type.startsWith('image/')) {
-        messageParts.push(fileToGenerativePart(params.fileData.dataUrl, params.fileData.type));
-      } else if (params.fileData) {
-        console.warn("Gemini Provider: Non-image file provided, it will be ignored by the model:", params.fileData.name, params.fileData.type);
-      }
-
-      if (messageParts.length === 0) {
-        messageParts.push({ text: "(empty message)" });
-      }
-      
-      const result: AsyncIterableIterator<GenerateContentResponse> = await chat.sendMessageStream({ message: messageParts });
-
-      for await (const chunk of result) {
-        const llmChunk: LLMStreamChunk = {};
-        if (chunk.text) {
-          llmChunk.text = chunk.text;
-        }
-        if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-          llmChunk.sources = chunk.candidates[0].groundingMetadata.groundingChunks;
-        }
-        yield llmChunk;
-      }
-      yield { isFinal: true };
-
-    } catch (error) {
-      console.error("Error sending message to Gemini:", error);
-      let errorMessage = "An unknown error occurred while communicating with Gemini.";
-      if (error instanceof Error) {
-        if (error.message.includes("API key not valid")) {
-            errorMessage = "The provided Gemini API key is not valid. Please check your configuration.";
-        } else if (error.message.includes("fetch_error") || error.message.includes("NetworkError")) {
-            errorMessage = "A network error occurred while trying to reach the Gemini API. Please check your internet connection.";
-        } else {
-            errorMessage = error.message;
-        }
-      }
-      yield { error: errorMessage, isFinal: true };
+    const geminiHistory = convertToGeminiHistory(params.history);
+    const messageParts: GeminiPart[] = [];
+    if (params.prompt) {
+      messageParts.push({ text: params.prompt });
     }
+    if (params.fileData && params.fileData.dataUrl && params.fileData.type.startsWith('image/')) {
+      messageParts.push(fileToGenerativePart(params.fileData.dataUrl, params.fileData.type));
+    } else if (params.fileData) {
+      console.warn("Gemini Provider: Non-image file provided, it will be ignored by the model:", params.fileData.name, params.fileData.type);
+    }
+    if (messageParts.length === 0) {
+      messageParts.push({ text: "(empty message)" });
+    }
+
+    // Model candidates: user-provided first, then safe fallbacks
+    const candidates = Array.from(new Set([
+      resolveGeminiModel(),
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+    ]));
+
+    let lastErr: unknown = undefined;
+
+    for (const modelName of candidates) {
+      try {
+        const chat: Chat = ai.chats.create({
+          ...baseConfig,
+          model: modelName,
+          history: geminiHistory,
+        });
+        // On first successful model, stream and return
+        yield* streamWithModel(chat, messageParts);
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (isModelNotFoundError(err)) {
+          console.warn(`Gemini model "${modelName}" not available. Trying next fallback...`);
+          continue; // try next model
+        }
+        // Non-model-not-found error: report and stop
+        console.error("Error sending message to Gemini:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error while communicating with Gemini.";
+        yield { error: errorMessage, isFinal: true };
+        return;
+      }
+    }
+
+    // If we exhausted candidates
+    const msg = lastErr instanceof Error ? lastErr.message : "All candidate models unavailable.";
+    yield { error: `No available Gemini model. ${msg}`, isFinal: true };
   }
 }
 
