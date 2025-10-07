@@ -26,29 +26,17 @@
         scrollbar-width: thin;
         scrollbar-color: #4a5568 transparent; /* thumb and track */
       }
-       body {
+      body {
         font-family: 'Inter', sans-serif; /* A common, clean sans-serif font */
       }
     </style>
-     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.1.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.1.0",
-    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
-    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1"
-  }
-}
-</script>
-</head>
+  </head>
   <body class="bg-gray-900">
     <div id="root"></div>
+    <!-- Vite will rewrite this to the built JS chunk during `vite build` -->
     <script type="module" src="/index.tsx"></script>
   </body>
-</html><link rel="stylesheet" href="index.css">
-<script src="index.tsx" type="module"></script>
+</html>
