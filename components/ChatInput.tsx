@@ -116,30 +116,30 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
   }, [message]);
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-800 border-t border-gray-700">
+    <form onSubmit={handleSubmit} className="p-4 bg-gradient-to-t from-slate-900 to-slate-800 border-t border-slate-800">
       {fileError && (
-        <div className="mb-2 text-xs text-red-400 bg-red-900 bg-opacity-50 p-2 rounded-md">
+        <div className="mb-2 text-xs text-red-400 bg-red-900/50 p-2 rounded-md">
           {fileError}
         </div>
       )}
       {selectedFile && fileDataUrl && (
-        <div className="mb-2 flex items-center justify-between text-xs text-gray-300 bg-gray-700 p-2 rounded-md">
+        <div className="mb-2 flex items-center justify-between text-xs text-slate-300 bg-slate-800/80 border border-slate-700 p-2 rounded-lg">
           <div className="flex items-center space-x-2 overflow-hidden">
-            <PaperClipIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <PaperClipIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
-            <span className="text-gray-500 flex-shrink-0">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+            <span className="text-slate-500 flex-shrink-0">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
           </div>
           <button 
             type="button" 
             onClick={handleRemoveFile} 
-            className="text-gray-400 hover:text-red-400 p-1 rounded-full focus:outline-none"
+            className="text-slate-400 hover:text-red-400 p-1 rounded-full focus:outline-none"
             aria-label="Remove selected file"
           >
             <XCircleIcon className="w-4 h-4" />
           </button>
         </div>
       )}
-      <div className="flex items-end space-x-2 bg-gray-700 rounded-xl p-1">
+      <div className="flex items-end space-x-2 rounded-2xl p-1 bg-slate-800/70 border border-slate-700 backdrop-blur">
         <input
           type="file"
           ref={fileInputRef}
@@ -152,7 +152,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="p-3 text-gray-400 hover:text-blue-500 disabled:text-gray-600 disabled:cursor-not-allowed focus:outline-none"
+          className="p-3 text-slate-400 hover:text-sky-500 disabled:text-slate-600 disabled:cursor-not-allowed focus:outline-none transition-colors"
           aria-label="Attach file"
         >
           <PaperClipIcon className="w-5 h-5" />
@@ -163,14 +163,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, initial
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={selectedFile ? "Add a caption or prompt for the image..." : "Type your message or drop code here..."}
-          className="flex-1 p-3 bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none resize-none overflow-y-hidden max-h-48 text-sm"
+          className="flex-1 p-3 bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none resize-none overflow-y-hidden max-h-48 text-sm"
           rows={1}
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading || (!message.trim() && !selectedFile) || !!fileError}
-          className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          className="p-3 rounded-xl bg-gradient-to-r from-sky-600 to-emerald-500 text-white hover:from-sky-500 hover:to-emerald-400 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-500/50 transition-all shadow"
           aria-label="Send message"
         >
           {isLoading ? <LoadingSpinner /> : <PaperAirplaneIcon className="w-5 h-5" />}

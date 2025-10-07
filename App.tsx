@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { ChatMessage, FileData } from './types';
 import { getLlmService } from './services/llm/llmServiceFactory';
-import type { LLMProviderType, LLMStreamChunk, LLMService } from './services/llm/types';
+import type { LLMProviderType, LLMService } from './services/llm/types';
 import { LLM_PROVIDERS } from './constants';
 import ChatInput from './components/ChatInput';
 import ChatMessageComponent from './components/ChatMessage';
@@ -147,23 +147,24 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen antialiased text-gray-200 bg-gray-900 font-inter">
+    <div className="flex h-screen antialiased text-slate-200 font-inter">
       <QuickActionsPanel 
         onActionClick={handleQuickActionClick}
         selectedProvider={selectedProvider}
         availableProviders={LLM_PROVIDERS}
         onProviderChange={handleProviderChange}
         currentProviderName={currentLlmServiceRef.current.providerName}
+        isProviderReady={currentLlmServiceRef.current.isApiKeyConfigured()}
       />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <main className="flex-grow p-6 overflow-y-auto space-y-4 bg-gray-800 custom-scrollbar">
+        <main className="flex-grow p-6 overflow-y-auto space-y-5 custom-scrollbar">
           {messages.map(msg => (
             <ChatMessageComponent key={msg.id} message={msg} />
           ))}
           <div ref={messagesEndRef} />
-          {error && !messages.some(msg => msg.text.includes(error)) && ( // Show general error if not part of a message
-             <div className="p-4 rounded-md bg-red-800 text-red-100 my-4 mx-auto max-w-2xl">
-                <p className="font-semibold text-sm">Error:</p>
+          {error && !messages.some(msg => msg.text.includes(error)) && (
+             <div className="p-4 rounded-md bg-red-900/80 border border-red-800 text-red-100 my-4 mx-auto max-w-2xl shadow-md">
+                <p className="font-semibold text-sm">Error</p>
                 <p className="text-xs">{error}</p>
              </div>
           )}

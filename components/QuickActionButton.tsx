@@ -12,10 +12,13 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({ action, onActionC
     <button
       onClick={() => onActionClick(action.prompt)}
       title={action.description || action.label}
-      className="w-full flex items-center space-x-3 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-left text-gray-200 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="w-full group relative text-left"
     >
-      {action.icon && <span className="flex-shrink-0 w-5 h-5">{action.icon}</span>}
-      <span className="text-sm font-medium">{action.label}</span>
+      <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-indigo-500/20 via-sky-500/20 to-emerald-400/20 opacity-0 group-hover:opacity-100 blur transition-opacity"></div>
+      <div className="relative flex items-center space-x-3 p-3 bg-slate-800/70 hover:bg-slate-700/70 rounded-xl text-slate-200 hover:text-white border border-slate-700 transition-colors">
+        {action.icon && <span className="flex-shrink-0 w-5 h-5 text-sky-400">{action.icon}</span>}
+        <span className="text-sm font-medium">{action.label}</span>
+      </div>
     </button>
   );
 };
