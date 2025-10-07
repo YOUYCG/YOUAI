@@ -101,12 +101,12 @@ const ApiKeySettings: React.FC = () => {
 
       // OpenAI-compatible
       localStorage.setItem('OPENAI_API_KEY', oaiKey.trim());
-      localStorage.setItem('OPENAI_BASE_URL', oaiBaseUrl.trim().replace(/\\/+$/, ''));
+      localStorage.setItem('OPENAI_BASE_URL', oaiBaseUrl.trim().replace(/\/+$/, ''));
       localStorage.setItem('OPENAI_MODEL', oaiModel.trim() || 'gpt-4o-mini');
 
       // Anthropic
       localStorage.setItem('ANTHROPIC_API_KEY', anthKey.trim());
-      localStorage.setItem('ANTHROPIC_BASE_URL', anthBaseUrl.trim().replace(/\\/+$/, ''));
+      localStorage.setItem('ANTHROPIC_BASE_URL', anthBaseUrl.trim().replace(/\/+$/, ''));
       localStorage.setItem('ANTHROPIC_MODEL', anthModel.trim() || 'claude-3-5-sonnet-latest');
 
       // Placeholder
@@ -118,6 +118,12 @@ const ApiKeySettings: React.FC = () => {
 
       // Web Search
       if (tavilyKey.trim()) localStorage.setItem('TAVILY_API_KEY', tavilyKey.trim()); else localStorage.removeItem('TAVILY_API_KEY');
+      if (serperKey.trim()) localStorage.setItem('SERPER_API_KEY', serperKey.trim()); else localStorage.removeItem('SERPER_API_KEY');
+      {
+        let u = searchProxyUrl.trim();
+        while (u.endsWith('/')) u = u.slice(0, -1);
+        if (u) localStorage.setItem('SEARCH_PROXY_URL', u); else localStorage.removeItem('SEARCH_PROXY_URL');
+      }
       if (serperKey.trim()) localStorage.setItem('SERPER_API_KEY', serperKey.trim()); else localStorage.removeItem('SERPER_API_KEY');
       if (searchProxyUrl.trim()) localStorage.setItem('SEARCH_PROXY_URL', searchProxyUrl.trim().replace(/\/+$/, '')); else localStorage.removeItem('SEARCH_PROXY_URL');
 
@@ -150,6 +156,7 @@ const ApiKeySettings: React.FC = () => {
       // Web Search
       localStorage.removeItem('TAVILY_API_KEY');
       localStorage.removeItem('SERPER_API_KEY');
+      localStorage.removeItem('SEARCH_PROXY_URL');
 
       setStatus('已清除，正在刷新…');
       setTimeout(() => window.location.reload(), 300);

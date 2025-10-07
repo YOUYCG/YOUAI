@@ -15,7 +15,8 @@ function getFromLocal(key: string): string {
 
 function getProxyBase(): string {
   try {
-    return (localStorage.getItem('SEARCH_PROXY_URL') || '').replace(/\/+$/, '');
+    let u = localStorage.getItem('SEARCH_PROXY_URL') || '';
+replace(/\/+$/, '');
   } catch {
     return '';
   }

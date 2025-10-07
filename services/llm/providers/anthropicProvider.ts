@@ -16,6 +16,7 @@ function getAnthropicBaseUrl(): string {
   // Official: https://api.anthropic.com
   const url = get('ANTHROPIC_BASE_URL', 'https://api.anthropic.com').trim();
   return url.replace(/\/+$/, '');
+  return url.replace(/\/+$/, '');
 }
 
 function convertToAnthropicMessages(history: AppChatMessage[], userPrompt: string) {

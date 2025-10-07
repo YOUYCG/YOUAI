@@ -24,6 +24,7 @@ function getOpenAIBaseUrl(): string {
   // - https://api.deepseek.com
   const url = get('OPENAI_BASE_URL', 'https://api.openai.com/v1').trim();
   return url.replace(/\/+$/, ''); // trim trailing slash
+  return url.replace(/\/+$/, ''); // trim trailing slash
 }
 
 function convertToOAIHistory(history: AppChatMessage[], userPrompt: string) {
